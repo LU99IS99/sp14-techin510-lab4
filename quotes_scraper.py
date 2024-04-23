@@ -10,24 +10,24 @@ from db import Database
 load_dotenv()
 
 # Base URL for the scraping
-BASE_URL = 'https://quotes.toscrape.com/page/{page}/'
+BASE_URL = 'https://books.toscrape.com/catalogue/page-{page}.html'
 
 # Initialize the command-line argument parser
-parser = argparse.ArgumentParser(description="Scrape quotes from 'quotes.toscrape.com'.")
+parser = argparse.ArgumentParser(description="Scrape books from 'Books to Scrape'.")
 parser.add_argument('--truncate', action='store_true', help='Truncate the table before inserting new records')
 args = parser.parse_args()
 
 # Connect to the database using a context manager
-with Database(os.getenv('DATABASE_URL')) as pg:
+with Database(os.getenv('DATABASE_URL')) as db:
     # Create a table if it doesn't exist
-    pg.create_table()
+    db.create_table()
     
     # Optionally truncate table if specified in command line args
     if args.truncate:
-        pg.truncate_table()
+        db.truncate_table()
     
-    # Initialize a list to store quotes
-    quotes = []
+    # Initialize a list to store books
+    books = []
     page = 1
     
     while True:
@@ -37,30 +37,36 @@ with Database(os.getenv('DATABASE_URL')) as pg:
         # Make a request to the webpage
         response = requests.get(url)
         
-        # Check if the page has no quotes, indicating an end or invalid page
-        if 'No quotes found!' in response.text:
+        # Check if the current page is empty of book listings
+        if 'No books found!' in response.text:
             break
         
         # Parse the page with BeautifulSoup
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Find all quote containers
-        quote_divs = soup.select('div.quote')
+        # Find all book containers
+        book_containers = soup.find_all('article', class_='product_pod')
         
-        for quote_div in quote_divs:
-            # Extract details for each quote
-            quote = {
-                'content': quote_div.select_one('span.text').text,
-                'author': quote_div.select_one('small.author').text,
-                'tags': ','.join([tag.text for tag in quote_div.select('a.tag')])
+        if not book_containers:
+            break  # If no books are found, exit the loop
+        
+        for book in book_containers:
+            # Extract details for each book
+            title = book.h3.a['title']
+            price = book.find('p', class_='price_color').text[2:]  # Remove the pound symbol
+            rating = book.p['class'][1]  # Ratings class returns ['star-rating', 'Three'] for example
+            book_details = {
+                'title': title,
+                'price': price,
+                'rating': rating
             }
             
-            # Insert quote into the database
-            pg.insert_quote(quote)
-            quotes.append(quote)
+            # Insert book into the database
+            db.insert_book(book_details)
+            books.append(book_details)
         
         # Go to the next page
         page += 1
 
-    # Optionally print all quotes
-    print(quotes)
+    # Optionally print all books
+    print(books)
