@@ -2,7 +2,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from db import Database  # 确保你有一个处理数据库的模块
+from db import Database  
 
 
 def get_price(s) -> float:
@@ -30,10 +30,10 @@ def get_availability(s) -> bool:
 
 load_dotenv()
 BASE_URL = 'https://books.toscrape.com/catalogue/page-{page}.html'
-DETAIL_URL = 'https://books.toscrape.com/catalogue'  # 基本URL用于拼接详情页
+DETAIL_URL = 'https://books.toscrape.com/catalogue'  
 
 with Database(os.getenv('DATABASE_URL')) as pg:
-    pg.create_table()  # 确保这个方法可以创建适合新数据的表
+    pg.create_table()  
     pg.truncate_table()
     books = []
     page = 1
